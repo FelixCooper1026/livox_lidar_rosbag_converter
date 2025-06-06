@@ -1,11 +1,12 @@
 # Livox LiDAR ROS Bag Converter
 
-提供了两种方式将 Livox LiDAR Rosbag 数据从 `sensor_msgs/PointCloud2` 格式转换为 `livox_ros_driver2/CustomMsg` 格式, 目前仅支持通过 livox ros driver2（支持 Livox Mid-360, Livox HAP 激光雷达)采集的数据
+提供了两种方式将 Livox LiDAR Rosbag 数据在 `sensor_msgs/PointCloud2` 格式和 `livox_ros_driver2/CustomMsg` 格式之间进行转换，目前仅支持通过 livox ros driver2（支持 Livox Mid-360, Livox HAP 激光雷达）采集的数据
 
 ## 功能特点
 
 - 支持实时数据转换和发布（ROS节点方式）
 - 支持直接转换 rosbag 文件和保存
+- 支持双向转换：PointCloud2 ↔ CustomMsg
 
 ## 安装
 
@@ -28,28 +29,36 @@ source devel/setup.bash
 
 ## 使用方法
 
-### 1. 实时转换（ROS节点方式）
+### 1. PointCloud2 转 CustomMsg
 
+#### 实时转换（ROS节点方式）
 ```bash
-rosrun livox_lidar_rosbag_converter lidar_converter
+rosrun livox_lidar_rosbag_converter pointcloud2_to_custommsg
 ```
 
-实时转换时：
+#### 直接转换 rosbag 文件
+```bash
+rosrun livox_lidar_rosbag_converter pointcloud2_to_custommsg_bag <输入bag文件路径> <输出bag文件路径>
+```
+
+### 2. CustomMsg 转 PointCloud2
+
+#### 实时转换（ROS节点方式）
+```bash
+rosrun livox_lidar_rosbag_converter custommsg_to_pointcloud2
+```
+
+#### 直接转换 rosbag 文件
+```bash
+rosrun livox_lidar_rosbag_converter custommsg_to_pointcloud2_bag <输入bag文件路径> <输出bag文件路径>
+```
+
+## 话题说明
+
+### PointCloud2 转 CustomMsg
 - 订阅 `/livox/lidar` 话题（PointCloud2 格式）
 - 发布 `/livox/lidar_custommsg` 话题（CustomMsg 格式）
 
-### 2. 直接转换 rosbag 文件
-
-```bash
-rosrun livox_lidar_rosbag_converter bag_converter <输入bag文件路径> <输出bag文件路径>
-```
-
-例如：
-```bash
-rosrun livox_lidar_rosbag_converter bag_converter input.bag output.bag
-```
-
-直接转换时：
-1. 读取 input.bag 文件中的 `/livox/lidar` 话题，将其从 PointCloud2 格式转换为 CustomMsg 格式，并保持话题名`/livox/lidar`不变
-2. 保留原始 bag 文件中的所有其他话题（如 `/livox/imu` 等）不变
-3. 保持所有消息的原始时间戳
+### CustomMsg 转 PointCloud2
+- 订阅 `/livox/lidar` 话题（CustomMsg 格式）
+- 发布 `/livox/lidar_pointcloud2` 话题（PointCloud2 格式）

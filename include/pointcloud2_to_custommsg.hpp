@@ -1,18 +1,18 @@
-#ifndef LIDAR_CONVERTER_HPP
-#define LIDAR_CONVERTER_HPP
+#ifndef POINTCLOUD2_TO_CUSTOMMSG_HPP
+#define POINTCLOUD2_TO_CUSTOMMSG_HPP
 
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <livox_ros_driver2/CustomMsg.h>  // Livox ROS驱动2的自定义消息类型
+#include <livox_ros_driver2/CustomMsg.h>
 #include <string>
 
 /**
- * @brief Livox激光雷达数据格式转换器类
+ * @brief PointCloud2到CustomMsg格式转换器类
  * 
  * 该类用于将PointCloud2格式的点云数据转换为Livox自定义消息格式
- * 支持实时转换和bag文件转换两种模式
+ * 支持实时转换模式
  */
-class LidarConverter {
+class PointCloud2ToCustomMsg {
 public:
   /**
    * @brief 构造函数
@@ -20,8 +20,8 @@ public:
    * @param input_topic 输入话题名，默认为"/livox/lidar"
    * @param output_topic 输出话题名，默认为"/livox/lidar_custommsg"
    */
-  LidarConverter(ros::NodeHandle& nh, const std::string& input_topic = "/livox/lidar", 
-                const std::string& output_topic = "/livox/lidar_custommsg");
+  PointCloud2ToCustomMsg(ros::NodeHandle& nh, const std::string& input_topic = "/livox/lidar", 
+                        const std::string& output_topic = "/livox/lidar_custommsg");
   
 private:
   /**
@@ -36,4 +36,4 @@ private:
   std::string output_topic_;                 // 输出话题名
 };
 
-#endif // LIDAR_CONVERTER_HPP
+#endif // POINTCLOUD2_TO_CUSTOMMSG_HPP 
