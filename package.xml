@@ -2,7 +2,7 @@
 <package format="2">
   <name>livox_lidar_rosbag_converter</name>
   <version>0.0.1</version>
-  <description>Livox LiDAR ROS bag format converter from PointCloud2 to CustomMsg</description>
+  <description>Livox LiDAR ROS bag format converter between PointCloud2 and CustomMsg formats</description>
   <maintainer email="your_email@example.com">Your Name</maintainer>
   <license>BSD</license>
 
