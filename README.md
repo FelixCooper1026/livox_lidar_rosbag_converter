@@ -55,10 +55,26 @@ rosrun livox_lidar_rosbag_converter custommsg_to_pointcloud2_bag <输入bag文�
 
 ## 话题说明
 
-### PointCloud2 转 CustomMsg
+### 实时转换
+
+#### PointCloud2 转 CustomMsg
 - 订阅 `/livox/lidar` 话题（PointCloud2 格式）
 - 发布 `/livox/lidar_custommsg` 话题（CustomMsg 格式）
 
-### CustomMsg 转 PointCloud2
+#### CustomMsg 转 PointCloud2
 - 订阅 `/livox/lidar` 话题（CustomMsg 格式）
 - 发布 `/livox/lidar_pointcloud2` 话题（PointCloud2 格式）
+
+### 直接转换rosbag文件
+
+#### PointCloud2 转 CustomMsg
+- 读取输入bag文件中的 `/livox/lidar` 话题（PointCloud2 格式）
+- 转换为 CustomMsg 格式后写入输出bag文件，保持话题名 `/livox/lidar` 不变
+- 保留原始bag文件中的所有其他话题数据
+- 保持所有消息的原始时间戳
+
+#### CustomMsg 转 PointCloud2
+- 读取输入bag文件中的 `/livox/lidar` 话题（CustomMsg 格式）
+- 转换为 PointCloud2 格式后写入输出bag文件，保持话题名 `/livox/lidar` 不变
+- 保留原始bag文件中的所有其他话题数据
+- 保持所有消息的原始时间戳
