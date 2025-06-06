@@ -21,6 +21,11 @@ cd ~/catkin_ws
 catkin_make
 ```
 
+3. 设置环境变量：
+```bash
+source devel/setup.bash
+```
+
 ## 使用方法
 
 ### 1. 实时转换（ROS节点方式）
