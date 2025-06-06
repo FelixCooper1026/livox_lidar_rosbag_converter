@@ -1,7 +1,6 @@
 # Livox LiDAR ROS Bag Converter
 
-提供了两种方式将 Livox LiDAR Rosbag 数据从 `sensor_msgs/PointCloud2` 格式转换为 `livox_ros_driver2/CustomMsg` 格式。
-目前仅支持通过 livox ros driver2（支持 Livox Mid-360, Livox HAP 激光雷达)采集的数据
+提供了两种方式将 Livox LiDAR Rosbag 数据从 `sensor_msgs/PointCloud2` 格式转换为 `livox_ros_driver2/CustomMsg` 格式, 目前仅支持通过 livox ros driver2（支持 Livox Mid-360, Livox HAP 激光雷达)采集的数据
 
 ## 功能特点
 
