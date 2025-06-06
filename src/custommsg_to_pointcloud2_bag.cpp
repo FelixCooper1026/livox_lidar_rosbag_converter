@@ -22,7 +22,25 @@ bool CustomMsgToPointCloud2Bag::convert() {
         rosbag::View full_view(input_bag);
         std::vector<const rosbag::ConnectionInfo*> connections = full_view.getConnections();
         
+        // 检查是否存在/livox/lidar话题
+        bool has_livox_topic = false;
+        for (const auto& conn : connections) {
+            if (conn->topic == "/livox/lidar") {
+                has_livox_topic = true;
+                // 检查话题类型
+                if (conn->datatype != "livox_ros_driver2/CustomMsg") {
+                    throw std::runtime_error("错误：输入bag文件中的/livox/lidar话题不是CustomMsg格式！");
+                }
+                break;
+            }
+        }
+        
+        if (!has_livox_topic) {
+            throw std::runtime_error("错误：输入bag文件中没有找到/livox/lidar话题！");
+        }
+
         // 遍历所有消息
+        bool has_converted_points = false;
         for (const rosbag::MessageInstance& m : full_view) {
             std::string topic = m.getTopic();
             
@@ -36,6 +54,7 @@ bool CustomMsgToPointCloud2Bag::convert() {
                         convertCustomMsgToPointCloud2(custom_msg);
                     // 写入新的bag文件，保持原始话题名
                     output_bag.write(topic, m.getTime(), pointcloud_msg);
+                    has_converted_points = true;
                 }
             } else {
                 // 直接复制其他话题的消息
@@ -46,6 +65,10 @@ bool CustomMsgToPointCloud2Bag::convert() {
         // 关闭bag文件
         input_bag.close();
         output_bag.close();
+        
+        if (!has_converted_points) {
+            throw std::runtime_error("错误：转换过程中没有找到有效的点云数据！");
+        }
         
         std::cout << "转换完成！输出文件: " << output_bag_path_ << std::endl;
         return true;
