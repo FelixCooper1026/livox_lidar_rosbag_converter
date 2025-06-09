@@ -11,6 +11,8 @@ public:
     ProgressBar(int total, const std::string& description = "Progress")
         : total_(total), current_(0), description_(description) {
         start_time_ = std::chrono::steady_clock::now();
+        // 打印初始进度条
+        print();
     }
 
     void update(int increment = 1) {
@@ -38,7 +40,7 @@ private:
         // 计算剩余时间
         int remaining = speed > 0 ? static_cast<int>((total_ - current_) / speed) : 0;
 
-        // 打印进度条
+        // 使用\r覆盖当前行
         std::cout << "\r" << description_ << " [";
         for (int i = 0; i < bar_width; ++i) {
             if (i < filled_width) std::cout << "=";
@@ -60,7 +62,8 @@ private:
             std::cout << seconds << "s";
         }
 
-        std::cout << std::flush;
+        // 使用空格覆盖可能存在的旧内容
+        std::cout << std::string(10, ' ') << std::flush;
     }
 
     int total_;
