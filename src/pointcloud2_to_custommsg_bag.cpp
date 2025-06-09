@@ -1,4 +1,5 @@
 #include "pointcloud2_to_custommsg_bag.hpp"
+#include "progress_bar.hpp"
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -47,6 +48,9 @@ bool PointCloud2ToCustomMsgBag::convert() {
             throw std::runtime_error("错误：输入bag文件中没有找到/livox/lidar话题！");
         }
 
+        // 创建进度条
+        ProgressBar progress(full_view.size(), "Converting PointCloud2 to CustomMsg");
+
         // 遍历所有消息
         bool has_converted_points = false;
         for (const rosbag::MessageInstance& m : full_view) {
@@ -68,7 +72,11 @@ bool PointCloud2ToCustomMsgBag::convert() {
                 // 直接复制其他话题的消息
                 output_bag.write(topic, m.getTime(), m);
             }
+            progress.update();
         }
+
+        // 完成进度条
+        progress.finish();
 
         // 关闭bag文件
         input_bag.close();
