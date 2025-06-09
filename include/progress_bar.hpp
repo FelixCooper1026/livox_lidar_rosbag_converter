@@ -5,6 +5,7 @@
 #include <chrono>
 #include <string>
 #include <iomanip>
+#include <sstream>
 
 class ProgressBar {
 public:
@@ -40,30 +41,34 @@ private:
         // 计算剩余时间
         int remaining = speed > 0 ? static_cast<int>((total_ - current_) / speed) : 0;
 
-        // 使用\r覆盖当前行
-        std::cout << "\r" << description_ << " [";
+        // 构建进度条字符串
+        std::stringstream ss;
+        ss << "\r" << description_ << " [";
         for (int i = 0; i < bar_width; ++i) {
-            if (i < filled_width) std::cout << "=";
-            else std::cout << " ";
+            if (i < filled_width) ss << "=";
+            else ss << " ";
         }
-        std::cout << "] " << std::fixed << std::setprecision(1) 
-                  << (progress * 100.0) << "% "
-                  << current_ << "/" << total_ << " messages"
-                  << " (" << std::fixed << std::setprecision(1) << speed << " msg/s)";
+        ss << "] " << std::fixed << std::setprecision(1) 
+           << (progress * 100.0) << "% "
+           << current_ << "/" << total_ << " messages"
+           << " (" << std::fixed << std::setprecision(1) << speed << " msg/s)";
 
-        // 打印剩余时间
+        // 添加剩余时间
         if (remaining > 0) {
             int hours = remaining / 3600;
             int minutes = (remaining % 3600) / 60;
             int seconds = remaining % 60;
-            std::cout << " ETA: ";
-            if (hours > 0) std::cout << hours << "h ";
-            if (minutes > 0) std::cout << minutes << "m ";
-            std::cout << seconds << "s";
+            ss << " ETA: ";
+            if (hours > 0) ss << hours << "h ";
+            if (minutes > 0) ss << minutes << "m ";
+            ss << seconds << "s";
         }
 
-        // 使用空格覆盖可能存在的旧内容
-        std::cout << std::string(10, ' ') << std::flush;
+        // 添加足够的空格来清除旧内容
+        ss << std::string(20, ' ');
+
+        // 输出并刷新
+        std::cout << ss.str() << std::flush;
     }
 
     int total_;
