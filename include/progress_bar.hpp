@@ -6,6 +6,8 @@
 #include <string>
 #include <iomanip>
 #include <sstream>
+#include <sys/ioctl.h>
+#include <unistd.h>
 
 class ProgressBar {
 public:
@@ -28,9 +30,18 @@ public:
     }
 
 private:
+    int get_terminal_width() {
+        struct winsize w;
+        ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+        // 返回终端宽度，如果获取失败则返回默认值70
+        return w.ws_col > 0 ? w.ws_col - 10 : 70;  // 减去10是为了留出边距
+    }
+
     void print() {
         float progress = static_cast<float>(current_) / total_;
-        int bar_width = 50;
+        int terminal_width = get_terminal_width();
+        // 动态计算进度条宽度，确保不会超出终端宽度
+        int bar_width = std::min(50, terminal_width - 60);  // 60是其他信息的预估宽度
         int filled_width = static_cast<int>(bar_width * progress);
 
         // 计算速度
@@ -45,7 +56,8 @@ private:
         std::stringstream ss;
         ss << "\r" << description_ << " [";
         for (int i = 0; i < bar_width; ++i) {
-            if (i < filled_width) ss << "=";
+            if (i < filled_width - 1) ss << "=";
+            else if (i == filled_width - 1) ss << ">";
             else ss << " ";
         }
         ss << "] " << std::fixed << std::setprecision(1) 
