@@ -2,6 +2,29 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <pcl/PCLPointCloud2.h>
+#include <pcl/point_types_conversion.h>
+
+// 自定义点类型，匹配Livox PointXYZRTLT格式
+struct PointXYZRTLT
+{
+  PCL_ADD_POINT4D;      // XYZ
+  float intensity;      // 反射强度
+  uint8_t tag;          // livox标签
+  uint8_t line;         // 激光线号
+  double timestamp;     // 时间戳
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+} EIGEN_ALIGN16;
+
+POINT_CLOUD_REGISTER_POINT_STRUCT(PointXYZRTLT,
+  (float, x, x)
+  (float, y, y)
+  (float, z, z)
+  (float, intensity, intensity)
+  (uint8_t, tag, tag)
+  (uint8_t, line, line)
+  (double, timestamp, timestamp)
+)
 
 /**
  * @brief 构造函数实现
@@ -31,24 +54,47 @@ PointCloud2ToCustomMsg::PointCloud2ToCustomMsg(ros::NodeHandle& nh, const std::s
  * @param msg PointCloud2格式的点云消息
  */
 void PointCloud2ToCustomMsg::callbackPointCloud(const sensor_msgs::PointCloud2ConstPtr& msg) {
-  // 创建PCL点云对象
-  pcl::PointCloud<pcl::PointXYZI> cloud;
+  // 创建自定义点云对象
+  pcl::PointCloud<PointXYZRTLT> cloud;
   pcl::fromROSMsg(*msg, cloud);
+
+  // 如果没有点，直接返回
+  if (cloud.empty()) {
+    ROS_WARN("Empty point cloud received");
+    return;
+  }
 
   // 创建CustomMsg消息
   livox_ros_driver2::CustomMsg custom_msg;
   custom_msg.header = msg->header;
   custom_msg.point_num = cloud.size();
+  custom_msg.lidar_id = 0;  // 默认设备ID
+  custom_msg.rsvd[0] = 0;
+  custom_msg.rsvd[1] = 0;
+  custom_msg.rsvd[2] = 0;
+  
+  // 获取第一个点的时间戳作为timebase
+  double first_timestamp = cloud[0].timestamp;
+  custom_msg.timebase = static_cast<uint64_t>(first_timestamp);
+  
   custom_msg.points.resize(cloud.size());
 
   // 转换每个点
   for (size_t i = 0; i < cloud.size(); ++i) {
-    custom_msg.points[i].x = cloud[i].x;
-    custom_msg.points[i].y = cloud[i].y;
-    custom_msg.points[i].z = cloud[i].z;
-    custom_msg.points[i].reflectivity = cloud[i].intensity;
-    custom_msg.points[i].tag = 0;
-    custom_msg.points[i].line = 0;
+    const auto& pcl_point = cloud[i];
+    auto& custom_point = custom_msg.points[i];
+    
+    custom_point.x = pcl_point.x;
+    custom_point.y = pcl_point.y;
+    custom_point.z = pcl_point.z;
+    custom_point.reflectivity = static_cast<uint8_t>(pcl_point.intensity);
+    custom_point.tag = pcl_point.tag;
+    custom_point.line = pcl_point.line;
+    
+    // 计算相对于timebase的偏移时间
+    double point_time = pcl_point.timestamp;
+    double offset_sec = point_time - first_timestamp;
+    custom_point.offset_time = static_cast<uint32_t>(offset_sec);
   }
 
   // 发布消息

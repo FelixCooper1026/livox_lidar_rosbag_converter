@@ -1,9 +1,31 @@
 #include "custommsg_to_pointcloud2_bag.hpp"
+#include "progress_bar.hpp"
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <pcl/PCLPointCloud2.h>
 #include <iostream>
-#include "progress_bar.hpp"
+
+// 自定义点类型，匹配Livox PointXYZRTLT格式
+struct PointXYZRTLT
+{
+  PCL_ADD_POINT4D;      // XYZ
+  float intensity;      // 反射强度
+  uint8_t tag;          // livox标签
+  uint8_t line;         // 激光线号
+  double timestamp;     // 时间戳
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+} EIGEN_ALIGN16;
+
+POINT_CLOUD_REGISTER_POINT_STRUCT(PointXYZRTLT,
+  (float, x, x)
+  (float, y, y)
+  (float, z, z)
+  (float, intensity, intensity)
+  (uint8_t, tag, tag)
+  (uint8_t, line, line)
+  (double, timestamp, timestamp)
+)
 
 CustomMsgToPointCloud2Bag::CustomMsgToPointCloud2Bag(const std::string& input_bag_path, 
                                                     const std::string& output_bag_path)
@@ -25,19 +47,35 @@ bool CustomMsgToPointCloud2Bag::convert() {
         
         // 检查是否存在/livox/lidar话题
         bool has_livox_topic = false;
+        std::string livox_topic_name = "/livox/lidar";
+        
+        // 首先检查是否存在/livox/lidar话题
         for (const auto& conn : connections) {
-            if (conn->topic == "/livox/lidar") {
+            if (conn->topic == livox_topic_name) {
                 has_livox_topic = true;
                 // 检查话题类型
                 if (conn->datatype != "livox_ros_driver2/CustomMsg") {
-                    throw std::runtime_error("错误：输入bag文件中的/livox/lidar话题不是CustomMsg格式！");
+                    std::cout << "警告：输入bag文件中的/livox/lidar话题不是CustomMsg格式，尝试查找其他CustomMsg话题..." << std::endl;
+                    has_livox_topic = false;
                 }
                 break;
             }
         }
         
+        // 如果没有找到/livox/lidar，查找任何包含"CustomMsg"类型的话题
         if (!has_livox_topic) {
-            throw std::runtime_error("错误：输入bag文件中没有找到/livox/lidar话题！");
+            for (const auto& conn : connections) {
+                if (conn->datatype == "livox_ros_driver2/CustomMsg") {
+                    livox_topic_name = conn->topic;
+                    has_livox_topic = true;
+                    std::cout << "找到CustomMsg话题: " << livox_topic_name << std::endl;
+                    break;
+                }
+            }
+        }
+        
+        if (!has_livox_topic) {
+            throw std::runtime_error("错误：输入bag文件中没有找到CustomMsg格式的话题！");
         }
 
         // 创建进度条
@@ -48,7 +86,7 @@ bool CustomMsgToPointCloud2Bag::convert() {
         for (const rosbag::MessageInstance& m : full_view) {
             std::string topic = m.getTopic();
             
-            if (topic == "/livox/lidar") {
+            if (topic == livox_topic_name) {
                 // 处理CustomMsg消息
                 livox_ros_driver2::CustomMsgConstPtr custom_msg = 
                     m.instantiate<livox_ros_driver2::CustomMsg>();
@@ -90,17 +128,24 @@ bool CustomMsgToPointCloud2Bag::convert() {
 sensor_msgs::PointCloud2 CustomMsgToPointCloud2Bag::convertCustomMsgToPointCloud2(
     const livox_ros_driver2::CustomMsgConstPtr& msg) {
     
-    // 创建PCL点云对象
-    pcl::PointCloud<pcl::PointXYZI> cloud;
+    // 创建自定义点云对象
+    pcl::PointCloud<PointXYZRTLT> cloud;
     cloud.reserve(msg->point_num);
+    
+    // 计算时间基数   
+    double timebase_sec = msg->timebase;
 
     // 转换每个点
     for (const auto& point : msg->points) {
-        pcl::PointXYZI pcl_point;
+        PointXYZRTLT pcl_point;
         pcl_point.x = point.x;
         pcl_point.y = point.y;
         pcl_point.z = point.z;
-        pcl_point.intensity = point.reflectivity;
+        pcl_point.intensity = static_cast<float>(point.reflectivity);
+        pcl_point.tag = point.tag;
+        pcl_point.line = point.line;
+        // 计算绝对时间戳：timebase + offset_time
+        pcl_point.timestamp = timebase_sec + point.offset_time;
         cloud.push_back(pcl_point);
     }
 

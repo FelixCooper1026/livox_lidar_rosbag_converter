@@ -3,7 +3,29 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <pcl/PCLPointCloud2.h>
 #include <iostream>
+
+// 自定义点类型，匹配Livox PointXYZRTLT格式
+struct PointXYZRTLT
+{
+  PCL_ADD_POINT4D;      // XYZ
+  float intensity;      // 反射强度
+  uint8_t tag;          // livox标签
+  uint8_t line;         // 激光线号
+  double timestamp;     // 时间戳
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+} EIGEN_ALIGN16;
+
+POINT_CLOUD_REGISTER_POINT_STRUCT(PointXYZRTLT,
+  (float, x, x)
+  (float, y, y)
+  (float, z, z)
+  (float, intensity, intensity)
+  (uint8_t, tag, tag)
+  (uint8_t, line, line)
+  (double, timestamp, timestamp)
+)
 
 /**
  * @brief 构造函数实现
@@ -31,21 +53,32 @@ bool PointCloud2ToCustomMsgBag::convert() {
         rosbag::View full_view(input_bag);
         std::vector<const rosbag::ConnectionInfo*> connections = full_view.getConnections();
         
-        // 检查是否存在/livox/lidar话题
+        // 检查是否存在PointCloud2格式的Livox话题
         bool has_livox_topic = false;
+        std::string livox_topic_name = "/livox/lidar";
+        
+        // 首先检查是否存在/livox/lidar话题
         for (const auto& conn : connections) {
-            if (conn->topic == "/livox/lidar") {
+            if (conn->topic == livox_topic_name && conn->datatype == "sensor_msgs/PointCloud2") {
                 has_livox_topic = true;
-                // 检查话题类型
-                if (conn->datatype != "sensor_msgs/PointCloud2") {
-                    throw std::runtime_error("错误：输入bag文件中的/livox/lidar话题不是PointCloud2格式！");
-                }
                 break;
             }
         }
         
+        // 如果没有找到，查找任何PointCloud2类型的话题
         if (!has_livox_topic) {
-            throw std::runtime_error("错误：输入bag文件中没有找到/livox/lidar话题！");
+            for (const auto& conn : connections) {
+                if (conn->datatype == "sensor_msgs/PointCloud2") {
+                    livox_topic_name = conn->topic;
+                    has_livox_topic = true;
+                    std::cout << "找到PointCloud2话题: " << livox_topic_name << std::endl;
+                    break;
+                }
+            }
+        }
+        
+        if (!has_livox_topic) {
+            throw std::runtime_error("错误：输入bag文件中没有找到PointCloud2格式的点云话题！");
         }
 
         // 创建进度条
@@ -56,7 +89,7 @@ bool PointCloud2ToCustomMsgBag::convert() {
         for (const rosbag::MessageInstance& m : full_view) {
             std::string topic = m.getTopic();
             
-            if (topic == "/livox/lidar") {
+            if (topic == livox_topic_name) {
                 // 处理PointCloud2消息
                 sensor_msgs::PointCloud2ConstPtr pointcloud_msg = 
                     m.instantiate<sensor_msgs::PointCloud2>();
@@ -101,24 +134,49 @@ bool PointCloud2ToCustomMsgBag::convert() {
  * @return 转换后的CustomMsg消息
  */
 livox_ros_driver2::CustomMsg PointCloud2ToCustomMsgBag::convertPointCloud2ToCustomMsg(const sensor_msgs::PointCloud2ConstPtr& msg) {
-    // 创建PCL点云对象
-    pcl::PointCloud<pcl::PointXYZI> cloud;
+    // 创建自定义点云对象
+    pcl::PointCloud<PointXYZRTLT> cloud;
     pcl::fromROSMsg(*msg, cloud);
+
+    // 如果没有点，返回空消息
+    if (cloud.empty()) {
+        livox_ros_driver2::CustomMsg empty_msg;
+        empty_msg.header = msg->header;
+        empty_msg.point_num = 0;
+        return empty_msg;
+    }
 
     // 创建CustomMsg消息
     livox_ros_driver2::CustomMsg custom_msg;
     custom_msg.header = msg->header;
     custom_msg.point_num = cloud.size();
+    custom_msg.lidar_id = 0;  // 默认设备ID
+    custom_msg.rsvd[0] = 0;
+    custom_msg.rsvd[1] = 0;
+    custom_msg.rsvd[2] = 0;
+    
+    // 获取第一个点的时间戳作为timebase
+    double first_timestamp = cloud[0].timestamp;
+    custom_msg.timebase = static_cast<uint64_t>(first_timestamp);
+    
     custom_msg.points.resize(cloud.size());
 
     // 转换每个点
     for (size_t i = 0; i < cloud.size(); ++i) {
-        custom_msg.points[i].x = cloud[i].x;
-        custom_msg.points[i].y = cloud[i].y;
-        custom_msg.points[i].z = cloud[i].z;
-        custom_msg.points[i].reflectivity = cloud[i].intensity;
-        custom_msg.points[i].tag = 0;
-        custom_msg.points[i].line = 0;
+        const auto& pcl_point = cloud[i];
+        auto& custom_point = custom_msg.points[i];
+        
+        custom_point.x = pcl_point.x;
+        custom_point.y = pcl_point.y;
+        custom_point.z = pcl_point.z;
+        custom_point.reflectivity = static_cast<uint8_t>(pcl_point.intensity);
+        custom_point.tag = pcl_point.tag;
+        custom_point.line = pcl_point.line;
+        
+        // 计算相对于timebase的偏移时间
+        double point_time = pcl_point.timestamp;
+        double offset_sec = point_time - first_timestamp;
+        custom_point.offset_time = static_cast<uint32_t>(offset_sec);
     }
 
     return custom_msg;
@@ -144,4 +202,4 @@ int main(int argc, char** argv) {
     }
     
     return 0;
-} 
+}
