@@ -1,0 +1,16 @@
+# ROS build files
+build/
+devel/
+*.o
+*.pyc
+*.pyo
+*.so
+*.a
+*.la
+*.lo
+*.Plo
+*.Po
+*.pc
+*.swp
+*~
+.DS_Store
