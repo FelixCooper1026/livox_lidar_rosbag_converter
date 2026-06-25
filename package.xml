@@ -4,22 +4,14 @@
   <version>0.0.1</version>
   <description>Livox LiDAR ROS bag format converter between PointCloud2 and CustomMsg formats</description>
   <maintainer email="your_email@example.com">Your Name</maintainer>
-  <license>BSD</license>
+  <license>MIT</license>
 
   <buildtool_depend>catkin</buildtool_depend>
-  
-  <!-- 添加所有必要的依赖 -->
-  <build_depend>roscpp</build_depend>
-  <build_depend>sensor_msgs</build_depend>
-  <build_depend>livox_ros_driver2</build_depend>
-  <build_depend>pcl_ros</build_depend>
-  <build_depend>rosbag</build_depend>
 
-  <exec_depend>roscpp</exec_depend>
-  <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>livox_ros_driver2</exec_depend>
-  <exec_depend>pcl_ros</exec_depend>
-  <exec_depend>rosbag</exec_depend>
+  <depend>roscpp</depend>
+  <depend>rosbag</depend>
+  <depend>sensor_msgs</depend>
+  <depend>livox_ros_driver2</depend>
 
   <export>
   </export>

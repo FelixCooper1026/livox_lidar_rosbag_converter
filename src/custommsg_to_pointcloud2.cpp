@@ -1,30 +1,7 @@
 #include "custommsg_to_pointcloud2.hpp"
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/PCLPointCloud2.h>
-#include <pcl/point_types_conversion.h>
+#include "livox_conversion.hpp"
 
-// 自定义点类型，匹配Livox PointXYZRTLT格式
-struct PointXYZRTLT
-{
-  PCL_ADD_POINT4D;      // XYZ
-  float intensity;      // 反射强度
-  uint8_t tag;          // livox标签
-  uint8_t line;         // 激光线号
-  double timestamp;     // 时间戳
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-} EIGEN_ALIGN16;
-
-POINT_CLOUD_REGISTER_POINT_STRUCT(PointXYZRTLT,
-  (float, x, x)
-  (float, y, y)
-  (float, z, z)
-  (float, intensity, intensity)
-  (uint8_t, tag, tag)
-  (uint8_t, line, line)
-  (double, timestamp, timestamp)
-)
+#include <exception>
 
 CustomMsgToPointCloud2::CustomMsgToPointCloud2(ros::NodeHandle& nh, const std::string& input_topic, 
                                               const std::string& output_topic)
@@ -44,34 +21,15 @@ CustomMsgToPointCloud2::CustomMsgToPointCloud2(ros::NodeHandle& nh, const std::s
 }
 
 void CustomMsgToPointCloud2::callbackCustomMsg(const livox_ros_driver2::CustomMsgConstPtr& msg) {
-  // 创建自定义点云对象
-  pcl::PointCloud<PointXYZRTLT> cloud;
-  cloud.reserve(msg->point_num);
-  
-  // 计算时间基数
-  double timebase_sec = msg->timebase;
-
-  // 转换每个点
-  for (const auto& point : msg->points) {
-    PointXYZRTLT pcl_point;
-    pcl_point.x = point.x;
-    pcl_point.y = point.y;
-    pcl_point.z = point.z;
-    pcl_point.intensity = static_cast<float>(point.reflectivity);
-    pcl_point.tag = point.tag;
-    pcl_point.line = point.line;
-    // 计算绝对时间戳：timebase + offset_time
-    pcl_point.timestamp = timebase_sec + point.offset_time;
-    cloud.push_back(pcl_point);
+  try {
+    pointcloud_publisher_.publish(livox_lidar_rosbag_converter::ToPointCloud2(*msg));
+  } catch (const std::exception& e) {
+    ROS_ERROR_STREAM("CustomMsg to PointCloud2 failed"
+                     << "\n  input_topic: " << input_topic_
+                     << "\n  output_topic: " << output_topic_
+                     << "\n  message: " << livox_lidar_rosbag_converter::DescribeCustomMsg(*msg)
+                     << "\n  details:\n" << e.what());
   }
-
-  // 转换为PointCloud2消息
-  sensor_msgs::PointCloud2 cloud_msg;
-  pcl::toROSMsg(cloud, cloud_msg);
-  cloud_msg.header = msg->header;
-
-  // 发布消息
-  pointcloud_publisher_.publish(cloud_msg);
 }
 
 int main(int argc, char** argv) {

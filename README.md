@@ -19,6 +19,7 @@
 - ✅ 实时转换（ROS 节点模式）  
 - ✅ 直接转换 rosbag 文件并保存  
 - ✅ 双向转换：PointCloud2 ↔ CustomMsg  
+- ✅ 转换失败时不生成目标输出 bag 文件
 
 ---
 
@@ -28,7 +29,7 @@
 
 - ROS 1（Noetic / Melodic）  
 - `livox_ros_driver2`（ROS 1 版本）  
-- `pcl_conversions`
+- `rosbag`
 
 ### 2. 编译
 
@@ -53,10 +54,10 @@ source devel/setup.bash
 
 ```bash
 # PointCloud2 → CustomMsg
-rosrun livox_lidar_rosbag_converter pointcloud2_to_custommsg_bag <输入.bag> <输出.bag>
+rosrun livox_lidar_rosbag_converter pointcloud2_to_custommsg_bag <输入.bag> <输出.bag> [话题名]
 
 # CustomMsg → PointCloud2
-rosrun livox_lidar_rosbag_converter custommsg_to_pointcloud2_bag <输入.bag> <输出.bag>
+rosrun livox_lidar_rosbag_converter custommsg_to_pointcloud2_bag <输入.bag> <输出.bag> [话题名]
 ```
 
 ---
@@ -111,8 +112,11 @@ ros2 run livox_lidar_rosbag_converter custommsg_to_pointcloud2_bag <输入目录
 
 ### rosbag 直接转换
 
-- 程序自动识别输入 bag 中的第一个有效话题（PointCloud2 或 CustomMsg），转换后仍以同名话题 `/livox/lidar` 写入输出 bag。  
+- 程序默认转换输入 bag 中的 `/livox/lidar` 话题，也可以通过第三个参数指定话题名；转换后仍以同名话题写入输出 bag。
+- `PointCloud2 → CustomMsg` 只支持 `livox_ros_driver2` 的 `xfer_format=0`（`PointXYZRTLT`）格式。
 - 其余话题及消息时间戳将原样保留。
+- 离线转换会先写入临时文件，全部成功后才生成目标输出 bag；如果输入话题缺失或转换中断，不会留下新的目标输出文件。
+- 进度条仅显示转换进度、百分比和消息计数，避免窄终端下自动换行。
 
 ---
 

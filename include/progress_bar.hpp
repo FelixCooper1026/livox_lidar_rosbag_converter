@@ -1,92 +1,95 @@
 #ifndef PROGRESS_BAR_HPP
 #define PROGRESS_BAR_HPP
 
-#include <iostream>
 #include <chrono>
-#include <string>
 #include <iomanip>
-#include <sstream>
-#include <sys/ioctl.h>
-#include <unistd.h>
+#include <iostream>
+#include <string>
 
 class ProgressBar {
 public:
     ProgressBar(int total, const std::string& description = "Progress")
-        : total_(total), current_(0), description_(description) {
-        start_time_ = std::chrono::steady_clock::now();
-        // 打印初始进度条
-        print();
+        : total_(total),
+          current_(0),
+          description_(description),
+          finished_(false),
+          last_print_time_(std::chrono::steady_clock::now()) {
+        print(true);
     }
 
     void update(int increment = 1) {
         current_ += increment;
-        print();
+        if (current_ > total_) {
+            current_ = total_;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_print_time_).count();
+        if (elapsed_ms >= 100 || current_ >= total_) {
+            print(false);
+        }
     }
 
     void finish() {
         current_ = total_;
-        print();
+        if (!finished_) {
+            print(false);
+        }
         std::cout << std::endl;
+        finished_ = true;
     }
 
 private:
-    int get_terminal_width() {
-        struct winsize w;
-        ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-        // 返回终端宽度，如果获取失败则返回默认值70
-        return w.ws_col > 0 ? w.ws_col - 10 : 70;  // 减去10是为了留出边距
+    int progress_percent() const {
+        if (total_ == 0) {
+            return 100;
+        }
+        return static_cast<int>((static_cast<double>(current_) * 100.0) / static_cast<double>(total_));
     }
 
-    void print() {
-        float progress = static_cast<float>(current_) / total_;
-        int terminal_width = get_terminal_width();
-        // 动态计算进度条宽度，确保不会超出终端宽度
-        int bar_width = std::min(50, terminal_width - 60);  // 60是其他信息的预估宽度
-        int filled_width = static_cast<int>(bar_width * progress);
+    std::string progress_bar() const {
+        const int bar_width = 36;
+        const int filled_width = (bar_width * progress_percent()) / 100;
 
-        // 计算速度
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - start_time_).count();
-        float speed = elapsed > 0 ? static_cast<float>(current_) / elapsed : 0;
-
-        // 计算剩余时间
-        int remaining = speed > 0 ? static_cast<int>((total_ - current_) / speed) : 0;
-
-        // 构建进度条字符串
-        std::stringstream ss;
-        ss << "\r" << description_ << " [";
+        std::string bar;
+        bar.reserve(bar_width);
         for (int i = 0; i < bar_width; ++i) {
-            if (i < filled_width - 1) ss << "=";
-            else if (i == filled_width - 1) ss << ">";
-            else ss << " ";
+            if (i < filled_width) {
+                bar += '=';
+            } else if (i == filled_width && filled_width < bar_width) {
+                bar += '>';
+            } else {
+                bar += ' ';
+            }
         }
-        ss << "] " << std::fixed << std::setprecision(1) 
-           << (progress * 100.0) << "% "
-           << current_ << "/" << total_ << " messages"
-           << " (" << std::fixed << std::setprecision(1) << speed << " msg/s)";
+        return bar;
+    }
 
-        // 添加剩余时间
-        if (remaining > 0) {
-            int hours = remaining / 3600;
-            int minutes = (remaining % 3600) / 60;
-            int seconds = remaining % 60;
-            ss << " ETA: ";
-            if (hours > 0) ss << hours << "h ";
-            if (minutes > 0) ss << minutes << "m ";
-            ss << seconds << "s";
+    void print(bool force) {
+        const auto now = std::chrono::steady_clock::now();
+        if (!force && current_ < total_) {
+            const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_print_time_).count();
+            if (elapsed_ms < 100) {
+                return;
+            }
         }
 
-        // 添加足够的空格来清除旧内容
-        ss << std::string(20, ' ');
+        std::cout << "\r" << description_ << " "
+                  << "[" << progress_bar() << "] "
+                  << std::setw(3) << progress_percent() << "% "
+                  << current_ << "/" << total_ << std::flush;
 
-        // 输出并刷新
-        std::cout << ss.str() << std::flush;
+        last_print_time_ = now;
+        if (current_ >= total_) {
+            finished_ = true;
+        }
     }
 
     int total_;
     int current_;
     std::string description_;
-    std::chrono::steady_clock::time_point start_time_;
+    bool finished_;
+    std::chrono::steady_clock::time_point last_print_time_;
 };
 
-#endif // PROGRESS_BAR_HPP 
+#endif  // PROGRESS_BAR_HPP

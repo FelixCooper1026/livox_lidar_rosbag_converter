@@ -21,7 +21,8 @@ public:
      * @param input_bag_path 输入bag文件路径
      * @param output_bag_path 输出bag文件路径
      */
-    CustomMsgToPointCloud2Bag(const std::string& input_bag_path, const std::string& output_bag_path);
+    CustomMsgToPointCloud2Bag(const std::string& input_bag_path, const std::string& output_bag_path,
+                              const std::string& topic_name = "/livox/lidar");
 
     /**
      * @brief 执行bag文件转换
@@ -39,6 +40,7 @@ private:
     
     std::string input_bag_path_;   // 输入bag文件路径
     std::string output_bag_path_;  // 输出bag文件路径
+    std::string topic_name_;       // 转换话题名
 };
 
-#endif // CUSTOMMSG_TO_POINTCLOUD2_BAG_HPP 
+#endif // CUSTOMMSG_TO_POINTCLOUD2_BAG_HPP
